@@ -1,0 +1,118 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+#Human Activity Recognition and it Prediction
+
+
+##Overview 
+The goal of this project is to predict the manner in which 6 participants performed some exercise as described below. This is the “classe” variable in the training set. The machine learning algorithm described here is applied to the 20 test cases available in the test data.
+
+
+###Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+###Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+###Environment Setup
+```{r message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+library(d3heatmap)
+library(rpart)
+library(gbm)
+```
+
+###Loading Data
+
+```{r}
+pml_training <- read.csv("Downloads/pml-training.csv",  na.strings=c("NA","#DIV/0!",""), strip.white=T)
+dim(pml_training)
+```
+
+```{r}
+pml_testing <- read.csv("Downloads/pml-testing.csv", na.strings=c("NA","#DIV/0!",""), strip.white=T)
+dim(pml_testing)
+```
+
+###Cleaning of Data
+Removing coloums containg NAs
+```{r}
+pml_training <-pml_training[,colSums(is.na(pml_training)) == 0]
+pml_testing <-pml_testing[,colSums(is.na(pml_testing)) == 0]
+
+# Delete unused columns
+pml_training <-pml_training[,-c(1:7)]
+pml_testing <-pml_testing[,-c(1:7)]
+
+# Check for the datasets dimemsions
+dim(pml_training)
+```
+
+```{r}
+dim(pml_testing)
+```
+###Corelation Analysis
+```{r}
+corMatrix <- cor(training[,-53])
+d3heatmap(corMatrix, scale = "column", dendrogram = "none",
+    color = scales::col_quantile("Blues", NULL, 5))
+```
+The highly correlated variables are shown in dark colors in the graph above.
+
+###Dataset Partitioning
+```{r}
+PartData <- createDataPartition(pml_training$classe, p=0.7, list=FALSE)
+training <- pml_training[PartData, ]
+testing <- pml_training[-PartData, ]
+dim(training)
+```
+```{r}
+dim(testing)
+```
+
+###Prediction Models 
+
+Random Forest
+```{r}
+modelRF <- randomForest(classe ~., data=training, method="class")
+prediction1 <- predict(modelRF, testing, Type="class")
+
+# Testing
+confusionMatrix(prediction1, testing$classe)
+```
+Accuracy here is 99.69%
+
+```{r}
+fitControl <- trainControl(method="repeatedcv", number=5, repeats=1)
+modelRF2 <- train(classe ~., data=training, method="gbm", trControl=fitControl, verbose=FALSE)
+# Predicting
+prediction2 <- predict(modelRF2, testing)
+# Testing
+confusionMatrix(prediction2, testing$classe)
+
+```
+Accuracy here is 95.6%
+
+The model we will use to predict is modelRf because its accuracy is better than second model
+
+##Prediction
+```{r}
+predictTest <- predict(modelRF, pml_testing)
+predictTest
+```
+
+
